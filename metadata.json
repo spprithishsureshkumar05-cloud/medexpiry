@@ -1,0 +1,6 @@
+{
+  "name": "MedExpiry – Medicine Expiry Tracking & Pharmacy Inventory Management System",
+  "description": "Complete pharmacy inventory management and medicine expiry tracking system with batch tracking, FEFO recommendations, real-time alerts, and audit logging.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

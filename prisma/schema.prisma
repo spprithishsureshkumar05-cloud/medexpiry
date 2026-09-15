@@ -1,0 +1,182 @@
+// Prisma Schema for MedExpiry
+// Medicine Expiry Tracking & Pharmacy Inventory Management System
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  ADMIN
+  STAFF
+}
+
+enum BatchStatus {
+  AVAILABLE
+  LOW_STOCK
+  EXPIRING_SOON
+  EXPIRED
+  OUT_OF_STOCK
+  RECALLED
+}
+
+enum TransactionType {
+  STOCK_IN
+  STOCK_OUT
+  ADJUSTMENT
+  RETURN
+  DAMAGED
+  EXPIRED
+  RECALLED
+}
+
+enum NotificationType {
+  EXPIRY_ALERT
+  EXPIRED_ALERT
+  LOW_STOCK
+  SYSTEM_ALERT
+}
+
+model User {
+  id                String             @id @default(uuid())
+  name              String
+  email             String             @unique
+  passwordHash      String
+  role              Role               @default(STAFF)
+  isActive          Boolean            @default(true)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  stockTransactions StockTransaction[]
+  notifications     Notification[]
+  auditLogs         AuditLog[]
+
+  @@map("users")
+}
+
+model Medicine {
+  id                String             @id @default(uuid())
+  medicineName      String
+  genericName       String
+  brandName         String
+  category          String
+  dosageForm        String             // Tablet, Capsule, Syrup, Injection, Cream, Ointment, Drops
+  strength          String             // e.g. 500mg, 10ml, 5mg/5ml
+  manufacturer      String
+  description       String?
+  minimumStockLevel Int                @default(20)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  batches           MedicineBatch[]
+
+  @@index([medicineName])
+  @@index([category])
+  @@map("medicines")
+}
+
+model MedicineBatch {
+  id                String             @id @default(uuid())
+  medicineId        String
+  batchNumber       String
+  manufacturingDate DateTime
+  expiryDate        DateTime
+  purchasePrice     Float
+  sellingPrice      Float
+  quantity          Int
+  supplierId        String
+  storageLocation   String             // Shelf A1, Refrigerator R2, etc.
+  status            BatchStatus        @default(AVAILABLE)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  medicine          Medicine           @relation(fields: [medicineId], references: [id], onDelete: Cascade)
+  supplier          Supplier           @relation(fields: [supplierId], references: [id])
+  stockTransactions StockTransaction[]
+  notifications     Notification[]
+
+  @@index([batchNumber])
+  @@index([expiryDate])
+  @@index([supplierId])
+  @@index([status])
+  @@map("medicine_batches")
+}
+
+model Supplier {
+  id            String          @id @default(uuid())
+  supplierName  String
+  contactPerson String
+  phone         String
+  email         String
+  address       String
+  licenseNumber String
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  batches       MedicineBatch[]
+
+  @@map("suppliers")
+}
+
+model StockTransaction {
+  id               String          @id @default(uuid())
+  medicineBatchId  String
+  transactionType  TransactionType
+  quantity         Int
+  previousQuantity Int
+  newQuantity      Int
+  reason           String
+  performedById    String
+  createdAt        DateTime        @default(now())
+
+  batch            MedicineBatch   @relation(fields: [medicineBatchId], references: [id], onDelete: Cascade)
+  performedBy      User            @relation(fields: [performedById], references: [id])
+
+  @@map("stock_transactions")
+}
+
+model Notification {
+  id             String           @id @default(uuid())
+  userId         String?
+  title          String
+  message        String
+  type           NotificationType
+  relatedBatchId String?
+  isRead         Boolean          @default(false)
+  createdAt      DateTime         @default(now())
+
+  user           User?            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  batch          MedicineBatch?   @relation(fields: [relatedBatchId], references: [id], onDelete: SetNull)
+
+  @@index([isRead])
+  @@index([type])
+  @@map("notifications")
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String
+  action    String
+  entity    String
+  entityId  String
+  oldValue  String?
+  newValue  String?
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@map("audit_logs")
+}
+
+model SystemSetting {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  value     String
+  updatedAt DateTime @updatedAt
+
+  @@map("system_settings")
+}
